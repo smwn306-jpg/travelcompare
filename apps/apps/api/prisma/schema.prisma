@@ -1,0 +1,160 @@
+// TravelCompare — Prisma schema
+// Stage 0+1 scope: User + RefreshToken are fully used by the Auth module.
+// Remaining models are defined now (per the architecture doc's ERD) so future
+// stages can build on a stable schema without repeated migrations churn.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+enum IntegrationType {
+  official_api
+  affiliate_feed
+  manual
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  fullName      String    @map("full_name")
+  role          UserRole  @default(user)
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens   RefreshToken[]
+  searchHistory   SearchHistory[]
+  favorites       Favorite[]
+  priceAlerts     PriceAlert[]
+  adminAuditLogs  AdminAuditLog[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model SearchHistory {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destination    String
+  nights         Int
+  travelers      Int
+  budget         Decimal  @db.Decimal(10, 2)
+  includeFlight  Boolean  @map("include_flight")
+  filters        Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("search_history")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dealId    String   @map("deal_id")
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, dealId])
+  @@map("favorites")
+}
+
+model PriceAlert {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destination  String
+  targetPrice  Decimal  @db.Decimal(10, 2) @map("target_price")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("price_alerts")
+}
+
+model Provider {
+  id              String          @id @default(uuid())
+  name            String          @unique
+  logoUrl         String?         @map("logo_url")
+  integrationType IntegrationType @map("integration_type")
+  isActive        Boolean         @default(true) @map("is_active")
+  config          Json?
+
+  deals Deal[]
+
+  @@map("providers")
+}
+
+model Deal {
+  id             String   @id @default(uuid())
+  providerId     String   @map("provider_id")
+  provider       Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  destination    String
+  hotelName      String   @map("hotel_name")
+  stars          Int
+  price          Decimal  @db.Decimal(10, 2)
+  originalPrice  Decimal? @db.Decimal(10, 2) @map("original_price")
+  boardType      String   @map("board_type")
+  includesFlight Boolean  @map("includes_flight")
+  nights         Int
+  travelDateStart      DateTime? @map("travel_date_start")
+  travelDateEnd        DateTime? @map("travel_date_end")
+  flightDepartureTime  String?   @map("flight_departure_time") // e.g. "06:30"
+  flightReturnTime     String?   @map("flight_return_time")    // e.g. "22:15"
+  rawPayload     Json?    @map("raw_payload")
+  fetchedAt      DateTime @map("fetched_at")
+  expiresAt      DateTime @map("expires_at")
+
+  favorites     Favorite[]
+  priceHistory  PriceHistory[]
+
+  @@index([destination])
+  @@map("deals")
+}
+
+model PriceHistory {
+  id         String   @id @default(uuid())
+  dealId     String   @map("deal_id")
+  deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  price      Decimal  @db.Decimal(10, 2)
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  @@map("price_history")
+}
+
+model AdminAuditLog {
+  id          String   @id @default(uuid())
+  adminId     String   @map("admin_id")
+  admin       User     @relation(fields: [adminId], references: [id])
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("admin_audit_log")
+}
