@@ -28,11 +28,18 @@ const PROVIDERS = [
 ];
 
 const DESTINATIONS_ABROAD = [
-  "אנטליה, טורקיה", "פראג, צ'כיה", "בטומי, גאורגיה", "פאפוס, קפריסין",
-  "בודפשט, הונגריה", "בנקוק, תאילנד", "בַּרְצֶלוֹנָה, ספרד", "אתונה, יוון",
+  "אנטליה, טורקיה", "איסטנבול, טורקיה", "פראג, צ'כיה", "בטומי, גאורגיה",
+  "טביליסי, גאורגיה", "פאפוס, קפריסין", "לרנקה, קפריסין", "בודפשט, הונגריה",
+  "בנקוק, תאילנד", "פוקט, תאילנד", "בַּרְצֶלוֹנָה, ספרד", "מדריד, ספרד",
+  "אתונה, יוון", "כרתים, יוון", "רודוס, יוון", "מילאנו, איטליה",
+  "רומא, איטליה", "ונציה, איטליה", "פריז, צרפת", "ניס, צרפת",
+  "לונדון, אנגליה", "אמסטרדם, הולנד", "ברלין, גרמניה", "וינה, אוסטריה",
+  "ליסבון, פורטוגל", "דובאי, איחוד האמירויות", "זנזיבר, טנזניה", "בָּאלִי, אינדונזיה",
 ];
 const DESTINATIONS_ISRAEL = [
   "אילת", "טבריה", "ים המלח", "צפת", "כרמל / חיפה", "נצרת ואגם הכנרת",
+  "ירושלים", "תל אביב", "הרי ירושלים", "רמת הגולן", "מצפה רמון", "עין גדי",
+  "נהריה ואזור הגליל המערבי", "קיסריה", "מכתש רמון",
 ];
 
 function seedRandom(seed) {
@@ -56,6 +63,24 @@ function defaultCheckOut() {
   d.setDate(d.getDate() + 21); // שבוע אחרי ה-check-in
   return formatDateInput(d);
 }
+// ממפה שם ספק לאתר הבית האמיתי שלו (אין לנו deep-link אמיתי לחדר הספציפי
+// כי אלה נתוני הדגמה — אבל הכפתור לפחות לוקח בפועל לספק האמיתי).
+const PROVIDER_HOMEPAGE = {
+  "Booking.com": "https://www.booking.com",
+  "אשת טורס": "https://www.eshet-tours.co.il",
+  "איסתא": "https://www.issta.co.il",
+  "Fattal": "https://www.fattal.com",
+  "Diesenhaus": "https://www.diesenhaus.com",
+};
+function providerUrl(providerName) {
+  return PROVIDER_HOMEPAGE[providerName] || "#";
+}
+
+function formatHebrewDate(dateStr) {
+  if (!dateStr) return null;
+  return new Date(dateStr).toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+}
+
 function nightsBetween(checkInStr, checkOutStr) {
   const inDate = new Date(checkInStr);
   const outDate = new Date(checkOutStr);
@@ -457,12 +482,35 @@ function FeaturedDeals() {
                   </span>
                 )}
               </div>
+              {(deal.travelDateStart || deal.includesFlight) && (
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1.5">
+                  {deal.travelDateStart && deal.travelDateEnd && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {formatHebrewDate(deal.travelDateStart)} – {formatHebrewDate(deal.travelDateEnd)}
+                    </span>
+                  )}
+                  {deal.includesFlight && deal.flightDepartureTime && (
+                    <span className="flex items-center gap-1">
+                      <Plane className="w-3 h-3 rotate-45" />
+                      טיסת הלוך {deal.flightDepartureTime}
+                    </span>
+                  )}
+                  {deal.includesFlight && deal.flightReturnTime && (
+                    <span className="flex items-center gap-1">
+                      <Plane className="w-3 h-3 -rotate-[135deg]" />
+                      טיסת חזור {deal.flightReturnTime}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0">
               {deal.originalPrice && (
                 <span className="text-xs text-slate-400 line-through">₪{deal.originalPrice.toLocaleString()}</span>
               )}
               <span className="text-xl font-bold text-[#0B2545]">₪{deal.price.toLocaleString()}</span>
+              <span className="text-xs text-slate-400">₪{Math.round(deal.price / 2).toLocaleString()} לאדם (ל-2 נוסעים)</span>
             </div>
           </div>
         ))}
@@ -472,7 +520,9 @@ function FeaturedDeals() {
 }
 
 export default function VacationFinderApp() {
-  const [view, setView] = useState("search"); // search | results | admin
+  const [view, setView] = useState(() =>
+    typeof window !== "undefined" && window.location.pathname === "/admin" ? "admin" : "search"
+  );
   const [currentUser, setCurrentUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [authModal, setAuthModal] = useState(null); // null | "login" | "register"
@@ -514,8 +564,69 @@ export default function VacationFinderApp() {
     return copy;
   }, [results, sortBy]);
 
+  const goToAdmin = () => {
+    window.history.pushState({}, "", "/admin");
+    setView("admin");
+  };
+  const exitAdmin = () => {
+    window.history.pushState({}, "", "/");
+    setView("search");
+  };
+
   if (view === "admin") {
-    return <AdminDashboard packages={packages} setPackages={setPackages} onExit={() => setView("search")} />;
+    if (!currentUser) {
+      return (
+        <div dir="rtl" className="min-h-screen bg-[#0B2545] flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <ShieldCheck className="w-10 h-10 text-[#0B2545] mx-auto mb-3" />
+            <h1 className="text-lg font-bold text-slate-800 mb-1">כניסת מנהל</h1>
+            <p className="text-sm text-slate-500 mb-5">האזור הזה דורש התחברות עם חשבון מנהל</p>
+            <button
+              onClick={() => setAuthModal("login")}
+              className="w-full bg-[#0B2545] text-white font-semibold rounded-lg py-2.5 hover:bg-[#0B2545]/90 transition-colors"
+            >
+              התחברות
+            </button>
+            <button onClick={exitAdmin} className="w-full text-xs text-slate-400 mt-3 hover:text-slate-700">
+              חזרה לאתר
+            </button>
+          </div>
+          {authModal && (
+            <AuthModal
+              mode={authModal}
+              onClose={() => setAuthModal(null)}
+              onSuccess={(user, token) => {
+                setCurrentUser(user);
+                setAccessToken(token);
+                setAuthModal(null);
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    if (currentUser.role !== "admin") {
+      return (
+        <div dir="rtl" className="min-h-screen bg-[#0B2545] flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <ShieldCheck className="w-10 h-10 text-[#E4572E] mx-auto mb-3" />
+            <h1 className="text-lg font-bold text-slate-800 mb-1">אין הרשאה</h1>
+            <p className="text-sm text-slate-500 mb-5">
+              מחובר בתור {currentUser.fullName}, אבל לחשבון הזה אין הרשאות מנהל
+            </p>
+            <button
+              onClick={exitAdmin}
+              className="w-full bg-[#0B2545] text-white font-semibold rounded-lg py-2.5 hover:bg-[#0B2545]/90 transition-colors"
+            >
+              חזרה לאתר
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return <AdminDashboard packages={packages} setPackages={setPackages} onExit={exitAdmin} />;
   }
 
   return (
@@ -557,13 +668,6 @@ export default function VacationFinderApp() {
                 </button>
               </>
             )}
-            <button
-              onClick={() => setView("admin")}
-              className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              כניסת מנהל
-            </button>
           </div>
         </div>
       </header>
@@ -659,7 +763,7 @@ export default function VacationFinderApp() {
                 <input
                   type="number"
                   min={1}
-                  max={12}
+                  max={20}
                   value={form.adults}
                   onChange={(e) => setForm((f) => ({ ...f, adults: Math.max(1, Number(e.target.value)) }))}
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
@@ -673,7 +777,7 @@ export default function VacationFinderApp() {
                 <input
                   type="number"
                   min={0}
-                  max={10}
+                  max={20}
                   value={form.children}
                   onChange={(e) => setForm((f) => ({ ...f, children: Math.max(0, Number(e.target.value)) }))}
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
@@ -789,10 +893,17 @@ export default function VacationFinderApp() {
                       <span className="text-xs text-slate-400 line-through">₪{offer.originalPrice.toLocaleString()}</span>
                     )}
                     <span className="text-xl font-bold text-[#0B2545]">₪{offer.price.toLocaleString()}</span>
-                    <span className="text-xs text-slate-400 sm:mb-2">סה״כ ל-{totalTravelers} נוסעים</span>
-                    <button className="flex items-center gap-1 text-sm font-semibold text-white bg-[#0B2545] rounded-lg px-4 py-2 hover:bg-[#0B2545]/90 transition-colors">
+                    <span className="text-xs text-slate-400">
+                      ₪{Math.round(offer.price / totalTravelers).toLocaleString()} לאדם · סה״כ ל-{totalTravelers} נוסעים
+                    </span>
+                    <a
+                      href={providerUrl(offer.provider)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm font-semibold text-white bg-[#0B2545] rounded-lg px-4 py-2 hover:bg-[#0B2545]/90 transition-colors mt-2 sm:mt-1"
+                    >
                       למעבר לספק <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                    </button>
+                    </a>
                   </div>
                 </div>
               ))}
