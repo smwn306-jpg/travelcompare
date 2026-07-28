@@ -65,8 +65,13 @@ async function searchHotelsByDestId(
   }
 
   const data = (await res.json()) as any;
-  logger.debug("Booking RapidAPI raw response shape", { keys: Object.keys(data ?? {}) });
-  return data?.data?.hotels ?? data?.data?.result ?? [];
+  const hotels = data?.data?.hotels ?? data?.data?.result ?? [];
+  logger.info("Booking RapidAPI raw response shape", {
+    topLevelKeys: Object.keys(data ?? {}),
+    dataKeys: Object.keys(data?.data ?? {}),
+    firstHotelSample: JSON.stringify(hotels[0] ?? null).slice(0, 1500),
+  });
+  return hotels;
 }
 
 function normalizeHotel(raw: any): NormalizedOffer {

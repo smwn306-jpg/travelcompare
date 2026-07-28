@@ -15,7 +15,8 @@ async function resolveGeoId(query: string): Promise<string | null> {
   const res = await fetch(url, { headers: headers() });
 
   if (!res.ok) {
-    logger.warn("TripAdvisor location search failed", { status: res.status });
+    const body = await res.text().catch(() => "");
+    logger.warn("TripAdvisor location search failed", { status: res.status, body: body.slice(0, 500) });
     return null;
   }
 
@@ -45,8 +46,12 @@ async function searchByGeoId(geoId: string, params: HotelSearchParams): Promise<
   }
 
   const data = (await res.json()) as any;
-  logger.debug("TripAdvisor raw response shape", { keys: Object.keys(data ?? {}) });
-  return data?.data?.data ?? [];
+  const results = data?.data?.data ?? [];
+  logger.info("TripAdvisor raw response shape", {
+    topLevelKeys: Object.keys(data ?? {}),
+    firstResultSample: JSON.stringify(results[0] ?? null).slice(0, 1500),
+  });
+  return results;
 }
 
 function normalize(raw: any): NormalizedOffer {

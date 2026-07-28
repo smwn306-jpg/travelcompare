@@ -49,8 +49,12 @@ async function searchByRegion(regionId: string, params: HotelSearchParams): Prom
   }
 
   const data = (await res.json()) as any;
-  logger.debug("Hotels4 raw response shape", { keys: Object.keys(data ?? {}) });
-  return data?.data?.body?.searchResults?.results ?? [];
+  const results = data?.data?.body?.searchResults?.results ?? [];
+  logger.info("Hotels4 raw response shape", {
+    topLevelKeys: Object.keys(data ?? {}),
+    firstResultSample: JSON.stringify(results[0] ?? null).slice(0, 1500),
+  });
+  return results;
 }
 
 function normalize(raw: any): NormalizedOffer {

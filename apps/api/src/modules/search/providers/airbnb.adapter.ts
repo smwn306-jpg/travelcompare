@@ -18,7 +18,8 @@ async function resolvePlaceId(query: string): Promise<string | null> {
   const res = await fetch(url, { headers: headers() });
 
   if (!res.ok) {
-    logger.warn("Airbnb autocomplete failed", { status: res.status });
+    const body = await res.text().catch(() => "");
+    logger.warn("Airbnb autocomplete failed", { status: res.status, body: body.slice(0, 500) });
     return null;
   }
 
@@ -48,8 +49,12 @@ async function searchByPlaceId(placeId: string, params: HotelSearchParams): Prom
   }
 
   const data = (await res.json()) as any;
-  logger.debug("Airbnb raw response shape", { keys: Object.keys(data ?? {}) });
-  return data?.data?.list ?? data?.data ?? [];
+  const results = data?.data?.list ?? data?.data ?? [];
+  logger.info("Airbnb raw response shape", {
+    topLevelKeys: Object.keys(data ?? {}),
+    firstResultSample: JSON.stringify(Array.isArray(results) ? results[0] : null).slice(0, 1500),
+  });
+  return results;
 }
 
 function normalize(raw: any): NormalizedOffer {
