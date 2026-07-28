@@ -549,10 +549,56 @@ export default function VacationFinderApp() {
   const nights = nightsBetween(form.checkIn, form.checkOut);
   const totalTravelers = form.adults + form.children;
 
-  const handleSearch = () => {
-    const offers = generateOffers({ ...form, nights, people: totalTravelers });
-    setResults(offers);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchIsDemo, setSearchIsDemo] = useState(false);
+
+  const handleSearch = async () => {
+    setSearchLoading(true);
     setView("results");
+
+    try {
+      const query = new URLSearchParams({
+        destination: form.destination,
+        checkIn: form.checkIn,
+        checkOut: form.checkOut,
+        adults: String(form.adults),
+        children: String(form.children),
+      });
+      const res = await fetch(`${API_BASE}/api/search/hotels?${query.toString()}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.offers || data.offers.length === 0) {
+        throw new Error("no live offers");
+      }
+
+      // ממפה את הפורמט האחיד (NormalizedOffer) מהשרת לפורמט שהכרטיסים כאן מציגים
+      const mapped = data.offers.map((o, i) => ({
+        id: `${o.providerId}-${i}`,
+        provider: o.providerName,
+        color: "#003580",
+        hotelName: o.hotelName,
+        stars: o.stars ?? 4,
+        price: o.price,
+        originalPrice: o.price,
+        discount: 0,
+        includesFlight: false,
+        nights,
+        board: "לא צוין",
+        rating: o.reviewScore ? o.reviewScore.toFixed(1) : "—",
+        deepLink: o.deepLink,
+      }));
+
+      setResults(mapped);
+      setSearchIsDemo(false);
+    } catch {
+      // חיפוש חי לא זמין (עדיין לא הוגדר מפתח API, או שהספק לא הגיב) —
+      // נופלים בחזרה לנתוני הדגמה כדי שהמשתמש עדיין יראה משהו, עם תיוג ברור שזה דמו.
+      const offers = generateOffers({ ...form, nights, people: totalTravelers });
+      setResults(offers);
+      setSearchIsDemo(true);
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
   const sortedResults = useMemo(() => {
@@ -828,14 +874,27 @@ export default function VacationFinderApp() {
 
       {/* Results */}
       <main className="max-w-6xl mx-auto px-6 -mt-8">
-        {view === "results" && results && (
+        {view === "results" && searchLoading && (
+          <div className="bg-white rounded-xl shadow-lg p-10 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-[#0B2545]" />
+            <p className="text-sm text-slate-500">מחפש מלונות אמיתיים אצל הספק...</p>
+          </div>
+        )}
+
+        {view === "results" && !searchLoading && results && (
           <>
             <div className="bg-white rounded-xl shadow-lg p-4 mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-bold text-slate-800">
                   {results.length} הצעות ל{form.destination} · {nights} לילות · {totalTravelers} נוסעים
                 </p>
-                <p className="text-xs text-slate-500">נתוני הדגמה — בגרסה מלאה יימשכו נתונים אמיתיים מכל ספק</p>
+                {searchIsDemo ? (
+                  <p className="text-xs text-[#F0A202] font-medium">
+                    ⚠️ חיפוש חי לא זמין כרגע — מוצגים נתוני הדגמה
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#1B7F79] font-medium">✓ נתונים חיים מהספק, עכשיו</p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-slate-400" />
@@ -897,7 +956,7 @@ export default function VacationFinderApp() {
                       ₪{Math.round(offer.price / totalTravelers).toLocaleString()} לאדם · סה״כ ל-{totalTravelers} נוסעים
                     </span>
                     <a
-                      href={providerUrl(offer.provider)}
+                      href={offer.deepLink || providerUrl(offer.provider)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-sm font-semibold text-white bg-[#0B2545] rounded-lg px-4 py-2 hover:bg-[#0B2545]/90 transition-colors mt-2 sm:mt-1"
