@@ -9,6 +9,7 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { generalRateLimiter } from "./middleware/rateLimiter.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import dealsRoutes from "./modules/deals/deals.routes.js";
+import searchRoutes from "./modules/search/search.routes.js";
 
 export function createApp() {
   const app = express();
@@ -42,9 +43,9 @@ export function createApp() {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/deals", dealsRoutes);
+  app.use("/api/search", searchRoutes);
 
   // Future modules mount the same way:
-  // app.use("/api/search", searchRoutes);
   // app.use("/api/admin", adminRoutes);
 
   app.use(notFoundHandler);

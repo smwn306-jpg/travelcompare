@@ -20,6 +20,11 @@ const envSchema = z.object({
 
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+
+  // אופציונלי בכוונה — עד שיוגדרו, חיפוש המלונות האמיתי פשוט לא זמין
+  // (מחזיר שגיאה ברורה), אבל שאר השרת ממשיך לעבוד כרגיל.
+  RAPIDAPI_KEY: z.string().optional(),
+  RAPIDAPI_HOST: z.string().default("booking-com15.p.rapidapi.com"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -47,5 +52,9 @@ export const config = {
   authRateLimit: {
     windowMs: parsed.data.AUTH_RATE_LIMIT_WINDOW_MS,
     max: parsed.data.AUTH_RATE_LIMIT_MAX,
+  },
+  rapidApi: {
+    key: parsed.data.RAPIDAPI_KEY,
+    host: parsed.data.RAPIDAPI_HOST,
   },
 } as const;

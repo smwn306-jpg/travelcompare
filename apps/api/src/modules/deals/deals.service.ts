@@ -30,6 +30,10 @@ export async function getFeaturedDeals(limit = 20) {
     boardType: deal.boardType,
     includesFlight: deal.includesFlight,
     nights: deal.nights,
+    travelDateStart: deal.travelDateStart,
+    travelDateEnd: deal.travelDateEnd,
+    flightDepartureTime: deal.flightDepartureTime,
+    flightReturnTime: deal.flightReturnTime,
     fetchedAt: deal.fetchedAt,
   }));
 }

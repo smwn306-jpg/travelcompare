@@ -119,6 +119,10 @@ model Deal {
   boardType      String   @map("board_type")
   includesFlight Boolean  @map("includes_flight")
   nights         Int
+  travelDateStart      DateTime? @map("travel_date_start")
+  travelDateEnd        DateTime? @map("travel_date_end")
+  flightDepartureTime  String?   @map("flight_departure_time") // e.g. "06:30"
+  flightReturnTime     String?   @map("flight_return_time")    // e.g. "22:15"
   rawPayload     Json?    @map("raw_payload")
   fetchedAt      DateTime @map("fetched_at")
   expiresAt      DateTime @map("expires_at")
