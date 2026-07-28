@@ -50,6 +50,94 @@ function seedRandom(seed) {
   };
 }
 
+// ממפה שם עיר (בעברית, תואם לרשימת היעדים למעלה) לקוד/י שדה תעופה.
+// ערים עם כמה שדות תעופה (כמו לונדון) מחזירות כמה קודים — במקרה כזה
+// המשתמש יתבקש לבחור. ברירת המחדל למקור: תל אביב.
+const CITY_AIRPORTS = {
+  "תל אביב": ["TLV"],
+  "אנטליה, טורקיה": ["AYT"],
+  "איסטנבול, טורקיה": ["IST", "SAW"],
+  "פראג, צ'כיה": ["PRG"],
+  "בטומי, גאורגיה": ["BUS"],
+  "טביליסי, גאורגיה": ["TBS"],
+  "פאפוס, קפריסין": ["PFO"],
+  "לרנקה, קפריסין": ["LCA"],
+  "בודפשט, הונגריה": ["BUD"],
+  "בנקוק, תאילנד": ["BKK", "DMK"],
+  "פוקט, תאילנד": ["HKT"],
+  "בַּרְצֶלוֹנָה, ספרד": ["BCN"],
+  "מדריד, ספרד": ["MAD"],
+  "אתונה, יוון": ["ATH"],
+  "כרתים, יוון": ["HER"],
+  "רודוס, יוון": ["RHO"],
+  "מילאנו, איטליה": ["MXP", "LIN", "BGY"],
+  "רומא, איטליה": ["FCO", "CIA"],
+  "ונציה, איטליה": ["VCE"],
+  "פריז, צרפת": ["CDG", "ORY"],
+  "ניס, צרפת": ["NCE"],
+  "לונדון, אנגליה": ["LHR", "LGW", "STN", "LTN", "LCY"],
+  "אמסטרדם, הולנד": ["AMS"],
+  "ברלין, גרמניה": ["BER"],
+  "וינה, אוסטריה": ["VIE"],
+  "ליסבון, פורטוגל": ["LIS"],
+  "דובאי, איחוד האמירויות": ["DXB"],
+  "זנזיבר, טנזניה": ["ZNZ"],
+  "בָּאלִי, אינדונזיה": ["DPS"],
+  "ניו יורק": ["JFK", "EWR", "LGA"],
+  "טוקיו": ["NRT", "HND"],
+};
+
+/** מוצא קודי שדה תעופה לפי טקסט חופשי — התאמה מדויקת קודם, ואז התאמה חלקית. */
+function lookupAirports(cityText) {
+  if (!cityText) return [];
+  if (CITY_AIRPORTS[cityText]) return CITY_AIRPORTS[cityText];
+  const match = Object.keys(CITY_AIRPORTS).find(
+    (key) => key.includes(cityText.trim()) || cityText.trim().includes(key.split(",")[0])
+  );
+  return match ? CITY_AIRPORTS[match] : [];
+}
+
+function AirportCityInput({ label, value, onCityChange, resolvedCode, onCodeChange }) {
+  const options = lookupAirports(value);
+
+  useEffect(() => {
+    if (options.length === 1 && resolvedCode !== options[0]) {
+      onCodeChange(options[0]);
+    } else if (options.length !== 1 && resolvedCode && !options.includes(resolvedCode)) {
+      onCodeChange("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-slate-500 mb-1 block">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onCityChange(e.target.value)}
+        placeholder="שם עיר, למשל: אתונה"
+        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
+      />
+      {options.length > 1 && (
+        <select
+          value={resolvedCode}
+          onChange={(e) => onCodeChange(e.target.value)}
+          className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs mt-1.5 focus:outline-none"
+        >
+          <option value="">בחר שדה תעופה...</option>
+          {options.map((code) => (
+            <option key={code} value={code}>{code}</option>
+          ))}
+        </select>
+      )}
+      {options.length === 0 && value && (
+        <p className="text-xs text-[#F0A202] mt-1">לא זוהה שדה תעופה לעיר הזו — נסה שם באנגלית או קוד IATA (למשל LHR)</p>
+      )}
+    </div>
+  );
+}
+
 function formatDateInput(date) {
   return date.toISOString().split("T")[0];
 }
@@ -66,7 +154,13 @@ function defaultCheckOut() {
 // ממפה שם ספק לאתר הבית האמיתי שלו (אין לנו deep-link אמיתי לחדר הספציפי
 // כי אלה נתוני הדגמה — אבל הכפתור לפחות לוקח בפועל לספק האמיתי).
 const PROVIDER_HOMEPAGE = {
+  // ספקים אמיתיים (חיים היום)
   "Booking.com": "https://www.booking.com",
+  "Hotels.com": "https://www.hotels.com",
+  "TripAdvisor": "https://www.tripadvisor.com",
+  "Airbnb": "https://www.airbnb.com",
+  "Google Flights": "https://www.google.com/travel/flights",
+  // שמות מדגמת ההדגמה (עדיין בשימוש כשהחיפוש החי לא זמין)
   "אשת טורס": "https://www.eshet-tours.co.il",
   "איסתא": "https://www.issta.co.il",
   "Fattal": "https://www.fattal.com",
@@ -604,7 +698,9 @@ export default function VacationFinderApp() {
     checkOut: defaultCheckOut(),
     budget: 4000,
     searchType: "hotels", // hotels | flights | both
+    departureCity: "תל אביב",
     departureAirport: "TLV",
+    arrivalCity: "",
     arrivalAirport: "",
   });
   const [results, setResults] = useState(null);
@@ -823,17 +919,11 @@ export default function VacationFinderApp() {
                 </label>
                 <input
                   type="text"
-                  list="destination-suggestions"
                   value={form.destination}
                   onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value }))}
                   placeholder="הקלד כל יעד — למשל: לונדון, טוקיו, ניו יורק..."
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
                 />
-                <datalist id="destination-suggestions">
-                  {destinationList.map((d) => (
-                    <option key={d} value={d} />
-                  ))}
-                </datalist>
               </div>
 
               <div>
@@ -948,28 +1038,20 @@ export default function VacationFinderApp() {
 
             {form.searchType !== "hotels" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
-                <div>
-                  <label className="text-xs font-medium text-slate-500 mb-1 block">קוד שדה תעופה יציאה (למשל TLV)</label>
-                  <input
-                    type="text"
-                    maxLength={4}
-                    value={form.departureAirport}
-                    onChange={(e) => setForm((f) => ({ ...f, departureAirport: e.target.value.toUpperCase() }))}
-                    placeholder="TLV"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500 mb-1 block">קוד שדה תעופה יעד</label>
-                  <input
-                    type="text"
-                    maxLength={4}
-                    value={form.arrivalAirport}
-                    onChange={(e) => setForm((f) => ({ ...f, arrivalAirport: e.target.value.toUpperCase() }))}
-                    placeholder="JFK"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
-                  />
-                </div>
+                <AirportCityInput
+                  label="עיר יציאה"
+                  value={form.departureCity}
+                  onCityChange={(v) => setForm((f) => ({ ...f, departureCity: v }))}
+                  resolvedCode={form.departureAirport}
+                  onCodeChange={(code) => setForm((f) => ({ ...f, departureAirport: code }))}
+                />
+                <AirportCityInput
+                  label="עיר יעד"
+                  value={form.arrivalCity}
+                  onCityChange={(v) => setForm((f) => ({ ...f, arrivalCity: v }))}
+                  resolvedCode={form.arrivalAirport}
+                  onCodeChange={(code) => setForm((f) => ({ ...f, arrivalAirport: code }))}
+                />
               </div>
             )}
           </div>
