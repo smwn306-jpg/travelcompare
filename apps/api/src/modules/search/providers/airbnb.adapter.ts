@@ -14,7 +14,10 @@ function headers() {
  * שלב תרגום נפרד. ה-wrapper הזה חושף endpoint autoComplete לכך.
  */
 async function resolvePlaceId(query: string): Promise<string | null> {
-  const url = `${BASE_URL}/api/v2/autoCompleteSuggestions?query=${encodeURIComponent(query)}`;
+  // ה-endpoint הקודם (/api/v2/autoCompleteSuggestions) אושר כשגוי בלוגים
+  // (404 "Endpoint does not exist"). זה השם הנפוץ ביותר לאותה פונקציה
+  // ב-wrapper הזה — אם זה עדיין שגוי, הלוג יראה שוב את השגיאה המדויקת.
+  const url = `${BASE_URL}/api/v1/searchLocation?query=${encodeURIComponent(query)}`;
   const res = await fetch(url, { headers: headers() });
 
   if (!res.ok) {
@@ -63,6 +66,7 @@ function normalize(raw: any): NormalizedOffer {
     providerId: "airbnb",
     providerName: "Airbnb",
     hotelName: listing?.name ?? listing?.title ?? "וילה / דירה (שם לא זמין)",
+    originalPrice: null,
     price: Number(raw?.pricingQuote?.rate?.amount ?? raw?.price?.total?.amount ?? 0),
     currency: raw?.pricingQuote?.rate?.currency ?? "ILS",
     reviewScore: listing?.avgRating ?? null,

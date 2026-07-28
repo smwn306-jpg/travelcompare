@@ -519,6 +519,75 @@ function FeaturedDeals() {
   );
 }
 
+function DealModal({ offer, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" dir="rtl">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        {offer.imageUrl && (
+          <img src={offer.imageUrl} alt={offer.hotelName} className="w-full h-48 object-cover" />
+        )}
+        <div className="p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded text-white"
+              style={{ backgroundColor: offer.color || "#0B2545" }}
+            >
+              {offer.provider}
+            </span>
+            {offer.discount > 0 && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#E4572E]/10 text-[#E4572E]">
+                חיסכון {offer.discount}%
+              </span>
+            )}
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 mb-1">{offer.hotelName}</h2>
+          {offer.address && <p className="text-sm text-slate-500 mb-3">{offer.address}</p>}
+
+          <div className="flex items-center gap-3 text-sm text-slate-600 mb-4">
+            <span className="flex items-center gap-0.5">
+              {Array.from({ length: offer.stars || 0 }).map((_, i) => (
+                <Star key={i} className="w-3.5 h-3.5 fill-[#F0A202] text-[#F0A202]" />
+              ))}
+            </span>
+            <span>{offer.rating} / 10</span>
+          </div>
+
+          <div className="bg-slate-50 rounded-xl p-4 mb-4">
+            {offer.discount > 0 && (
+              <span className="text-sm text-slate-400 line-through block">₪{offer.originalPrice?.toLocaleString()}</span>
+            )}
+            <span className="text-2xl font-bold text-[#0B2545]">₪{offer.price.toLocaleString()}</span>
+            <p className="text-xs text-slate-500 mt-1">
+              ₪{Math.round(offer.price / (offer.totalTravelers || 2)).toLocaleString()} לאדם
+            </p>
+          </div>
+
+          <p className="text-xs text-slate-400 mb-4">
+            💡 המחיר והזמינות מוצגים לפי מה שהספק החזיר בזמן החיפוש — ייתכנו שינויים קלים עד להשלמת ההזמנה בפועל אצל הספק.
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="flex-1 text-sm font-semibold text-slate-600 bg-slate-100 rounded-lg px-4 py-2.5 hover:bg-slate-200 transition-colors"
+            >
+              סגור, המשך לחפש
+            </button>
+            <a
+              href={offer.deepLink || providerUrl(offer.provider)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 text-center text-sm font-semibold text-white bg-[#0B2545] rounded-lg px-4 py-2.5 hover:bg-[#0B2545]/90 transition-colors"
+            >
+              המשך להזמנה אצל הספק ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VacationFinderApp() {
   const [view, setView] = useState(() =>
     typeof window !== "undefined" && window.location.pathname === "/admin" ? "admin" : "search"
@@ -534,7 +603,9 @@ export default function VacationFinderApp() {
     checkIn: defaultCheckIn(),
     checkOut: defaultCheckOut(),
     budget: 4000,
-    includeFlight: true,
+    searchType: "hotels", // hotels | flights | both
+    departureAirport: "TLV",
+    arrivalAirport: "",
   });
   const [results, setResults] = useState(null);
   const [sortBy, setSortBy] = useState("price");
@@ -552,10 +623,11 @@ export default function VacationFinderApp() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchIsDemo, setSearchIsDemo] = useState(false);
 
-  const handleSearch = async () => {
-    setSearchLoading(true);
-    setView("results");
+  const [flightResults, setFlightResults] = useState(null);
+  const [flightIsDemo, setFlightIsDemo] = useState(false);
+  const [selectedOffer, setSelectedOffer] = useState(null);
 
+  const fetchHotels = async () => {
     try {
       const query = new URLSearchParams({
         destination: form.destination,
@@ -566,12 +638,8 @@ export default function VacationFinderApp() {
       });
       const res = await fetch(`${API_BASE}/api/search/hotels?${query.toString()}`);
       const data = await res.json();
+      if (!res.ok || !data.offers || data.offers.length === 0) throw new Error("no live offers");
 
-      if (!res.ok || !data.offers || data.offers.length === 0) {
-        throw new Error("no live offers");
-      }
-
-      // ממפה את הפורמט האחיד (NormalizedOffer) מהשרת לפורמט שהכרטיסים כאן מציגים
       const mapped = data.offers.map((o, i) => ({
         id: `${o.providerId}-${i}`,
         provider: o.providerName,
@@ -579,26 +647,57 @@ export default function VacationFinderApp() {
         hotelName: o.hotelName,
         stars: o.stars ?? 4,
         price: o.price,
-        originalPrice: o.price,
-        discount: 0,
+        originalPrice: o.originalPrice ?? o.price,
+        discount: o.originalPrice ? Math.round((1 - o.price / o.originalPrice) * 100) : 0,
         includesFlight: false,
         nights,
         board: "לא צוין",
-        rating: o.reviewScore ? o.reviewScore.toFixed(1) : "—",
+        rating: o.reviewScore ? Number(o.reviewScore).toFixed(1) : "—",
         deepLink: o.deepLink,
+        imageUrl: o.imageUrl,
+        address: o.address,
       }));
-
       setResults(mapped);
       setSearchIsDemo(false);
     } catch {
-      // חיפוש חי לא זמין (עדיין לא הוגדר מפתח API, או שהספק לא הגיב) —
-      // נופלים בחזרה לנתוני הדגמה כדי שהמשתמש עדיין יראה משהו, עם תיוג ברור שזה דמו.
-      const offers = generateOffers({ ...form, nights, people: totalTravelers });
-      setResults(offers);
+      setResults(generateOffers({ ...form, nights, people: totalTravelers }));
       setSearchIsDemo(true);
-    } finally {
-      setSearchLoading(false);
     }
+  };
+
+  const fetchFlights = async () => {
+    try {
+      if (!form.departureAirport || !form.arrivalAirport) throw new Error("missing airports");
+      const query = new URLSearchParams({
+        departureId: form.departureAirport,
+        arrivalId: form.arrivalAirport,
+        departureDate: form.checkIn,
+        adults: String(form.adults),
+      });
+      const res = await fetch(`${API_BASE}/api/search/flights?${query.toString()}`);
+      const data = await res.json();
+      if (!res.ok || !data.offers || data.offers.length === 0) throw new Error("no live flights");
+
+      setFlightResults(data.offers);
+      setFlightIsDemo(false);
+    } catch {
+      setFlightResults(null);
+      setFlightIsDemo(true);
+    }
+  };
+
+  const handleSearch = async () => {
+    setSearchLoading(true);
+    setView("results");
+
+    const tasks = [];
+    if (form.searchType === "hotels" || form.searchType === "both") tasks.push(fetchHotels());
+    else setResults(null);
+    if (form.searchType === "flights" || form.searchType === "both") tasks.push(fetchFlights());
+    else setFlightResults(null);
+
+    await Promise.all(tasks);
+    setSearchLoading(false);
   };
 
   const sortedResults = useMemo(() => {
@@ -684,51 +783,8 @@ export default function VacationFinderApp() {
             <Plane className="w-5 h-5 text-[#F0A202] rotate-45" />
             <span className="font-bold text-lg tracking-tight">חופשה·חכמה</span>
           </div>
-          <div className="flex items-center gap-3">
-            {currentUser ? (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="flex items-center gap-1.5 bg-white/10 rounded-lg px-3 py-1.5">
-                  <User className="w-3.5 h-3.5 text-[#F0A202]" />
-                  {currentUser.fullName}
-                </span>
-                <button
-                  onClick={() => { setCurrentUser(null); setAccessToken(null); }}
-                  className="flex items-center gap-1 text-slate-300 hover:text-white transition-colors px-2 py-1.5"
-                >
-                  <LogOut className="w-3.5 h-3.5" /> יציאה
-                </button>
-              </div>
-            ) : (
-              <>
-                <button
-                  onClick={() => setAuthModal("login")}
-                  className="text-sm text-slate-200 hover:text-white transition-colors px-3 py-1.5"
-                >
-                  התחברות
-                </button>
-                <button
-                  onClick={() => setAuthModal("register")}
-                  className="text-sm bg-[#F0A202] text-[#0B2545] font-semibold rounded-lg px-3 py-1.5 hover:bg-[#d9930a] transition-colors"
-                >
-                  הרשמה
-                </button>
-              </>
-            )}
-          </div>
         </div>
       </header>
-
-      {authModal && (
-        <AuthModal
-          mode={authModal}
-          onClose={() => setAuthModal(null)}
-          onSuccess={(user, token) => {
-            setCurrentUser(user);
-            setAccessToken(token);
-            setAuthModal(null);
-          }}
-        />
-      )}
 
       {/* Hero + search form (Booking-style sticky search bar) */}
       <section className="bg-[#0B2545] pb-16 pt-6">
@@ -765,15 +821,19 @@ export default function VacationFinderApp() {
                 <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> יעד
                 </label>
-                <select
+                <input
+                  type="text"
+                  list="destination-suggestions"
                   value={form.destination}
                   onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value }))}
+                  placeholder="הקלד כל יעד — למשל: לונדון, טוקיו, ניו יורק..."
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
-                >
+                />
+                <datalist id="destination-suggestions">
                   {destinationList.map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d} />
                   ))}
-                </select>
+                </datalist>
               </div>
 
               <div>
@@ -850,16 +910,33 @@ export default function VacationFinderApp() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
-              <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.includeFlight}
-                  onChange={(e) => setForm((f) => ({ ...f, includeFlight: e.target.checked }))}
-                  className="w-4 h-4 accent-[#0B2545]"
-                />
-                <Plane className="w-3.5 h-3.5" /> כולל טיסה
-              </label>
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-100">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setForm((f) => ({ ...f, searchType: "hotels" }))}
+                  className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                    form.searchType === "hotels" ? "bg-[#0B2545] text-white" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  <Hotel className="w-3.5 h-3.5" /> מלונות בלבד
+                </button>
+                <button
+                  onClick={() => setForm((f) => ({ ...f, searchType: "flights" }))}
+                  className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                    form.searchType === "flights" ? "bg-[#0B2545] text-white" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  <Plane className="w-3.5 h-3.5" /> טיסות בלבד
+                </button>
+                <button
+                  onClick={() => setForm((f) => ({ ...f, searchType: "both" }))}
+                  className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                    form.searchType === "both" ? "bg-[#0B2545] text-white" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  מלונות + טיסות
+                </button>
+              </div>
 
               <button
                 onClick={handleSearch}
@@ -868,6 +945,33 @@ export default function VacationFinderApp() {
                 <Search className="w-4 h-4" /> חפש חופשה
               </button>
             </div>
+
+            {form.searchType !== "hotels" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">קוד שדה תעופה יציאה (למשל TLV)</label>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={form.departureAirport}
+                    onChange={(e) => setForm((f) => ({ ...f, departureAirport: e.target.value.toUpperCase() }))}
+                    placeholder="TLV"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">קוד שדה תעופה יעד</label>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={form.arrivalAirport}
+                    onChange={(e) => setForm((f) => ({ ...f, arrivalAirport: e.target.value.toUpperCase() }))}
+                    placeholder="JFK"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#0B2545]/30"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -877,101 +981,157 @@ export default function VacationFinderApp() {
         {view === "results" && searchLoading && (
           <div className="bg-white rounded-xl shadow-lg p-10 flex flex-col items-center justify-center gap-3">
             <Loader2 className="w-6 h-6 animate-spin text-[#0B2545]" />
-            <p className="text-sm text-slate-500">מחפש מלונות אמיתיים אצל הספק...</p>
+            <p className="text-sm text-slate-500">
+              {form.searchType === "flights" ? "מחפש טיסות..." : form.searchType === "both" ? "מחפש מלונות וטיסות..." : "מחפש מלונות אמיתיים אצל הספק..."}
+            </p>
           </div>
         )}
 
-        {view === "results" && !searchLoading && results && (
-          <>
-            <div className="bg-white rounded-xl shadow-lg p-4 mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-bold text-slate-800">
-                  {results.length} הצעות ל{form.destination} · {nights} לילות · {totalTravelers} נוסעים
-                </p>
-                {searchIsDemo ? (
-                  <p className="text-xs text-[#F0A202] font-medium">
-                    ⚠️ חיפוש חי לא זמין כרגע — מוצגים נתוני הדגמה
-                  </p>
-                ) : (
-                  <p className="text-xs text-[#1B7F79] font-medium">✓ נתונים חיים מהספק, עכשיו</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-slate-400" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
-                >
-                  <option value="price">מיין לפי: מחיר</option>
-                  <option value="rating">מיין לפי: דירוג</option>
-                  <option value="stars">מיין לפי: כוכבים</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-3 pb-12">
-              {sortedResults.map((offer) => (
-                <div
-                  key={offer.id}
-                  className="bg-white rounded-xl border border-slate-200 hover:shadow-md transition-shadow p-4 flex flex-col sm:flex-row sm:items-center gap-4"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className="text-xs font-semibold px-2 py-0.5 rounded text-white"
-                        style={{ backgroundColor: offer.color }}
-                      >
-                        {offer.provider}
-                      </span>
-                      {offer.discount > 0 && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#E4572E]/10 text-[#E4572E]">
-                          חיסכון {offer.discount}%
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-slate-800">{offer.hotelName}</h3>
-                    <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                      <span className="flex items-center gap-0.5">
-                        {Array.from({ length: offer.stars }).map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-[#F0A202] text-[#F0A202]" />
-                        ))}
-                      </span>
-                      <span>{offer.rating} / 10</span>
-                      <span>{offer.board}</span>
-                      {offer.includesFlight && (
-                        <span className="flex items-center gap-1 text-[#1B7F79]">
-                          <Plane className="w-3 h-3" /> כולל טיסה
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0 sm:text-left">
-                    {offer.discount > 0 && (
-                      <span className="text-xs text-slate-400 line-through">₪{offer.originalPrice.toLocaleString()}</span>
+        {view === "results" && !searchLoading && (
+          <div className="pb-12 space-y-5">
+            {form.searchType !== "flights" && results && (
+              <>
+                <div className="bg-white rounded-xl shadow-lg p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-slate-800">
+                      🏨 {results.length} הצעות מלונות ל{form.destination} · {nights} לילות · {totalTravelers} נוסעים
+                    </p>
+                    {searchIsDemo ? (
+                      <p className="text-xs text-[#F0A202] font-medium">⚠️ חיפוש חי לא זמין כרגע — מוצגים נתוני הדגמה</p>
+                    ) : (
+                      <p className="text-xs text-[#1B7F79] font-medium">✓ נתונים חיים מהספק, עכשיו</p>
                     )}
-                    <span className="text-xl font-bold text-[#0B2545]">₪{offer.price.toLocaleString()}</span>
-                    <span className="text-xs text-slate-400">
-                      ₪{Math.round(offer.price / totalTravelers).toLocaleString()} לאדם · סה״כ ל-{totalTravelers} נוסעים
-                    </span>
-                    <a
-                      href={offer.deepLink || providerUrl(offer.provider)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm font-semibold text-white bg-[#0B2545] rounded-lg px-4 py-2 hover:bg-[#0B2545]/90 transition-colors mt-2 sm:mt-1"
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-slate-400" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
                     >
-                      למעבר לספק <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                    </a>
+                      <option value="price">מיין לפי: מחיר</option>
+                      <option value="rating">מיין לפי: דירוג</option>
+                      <option value="stars">מיין לפי: כוכבים</option>
+                    </select>
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
+
+                <div className="space-y-3">
+                  {sortedResults.map((offer) => (
+                    <div
+                      key={offer.id}
+                      className="bg-white rounded-xl border border-slate-200 hover:shadow-md transition-shadow p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span
+                            className="text-xs font-semibold px-2 py-0.5 rounded text-white"
+                            style={{ backgroundColor: offer.color }}
+                          >
+                            {offer.provider}
+                          </span>
+                          {offer.discount > 0 && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#E4572E]/10 text-[#E4572E]">
+                              חיסכון {offer.discount}%
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="font-bold text-slate-800">{offer.hotelName}</h3>
+                        <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                          <span className="flex items-center gap-0.5">
+                            {Array.from({ length: offer.stars }).map((_, i) => (
+                              <Star key={i} className="w-3 h-3 fill-[#F0A202] text-[#F0A202]" />
+                            ))}
+                          </span>
+                          <span>{offer.rating} / 10</span>
+                          <span>{offer.board}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0 sm:text-left">
+                        {offer.discount > 0 && (
+                          <span className="text-xs text-slate-400 line-through">₪{offer.originalPrice.toLocaleString()}</span>
+                        )}
+                        <span className="text-xl font-bold text-[#0B2545]">₪{offer.price.toLocaleString()}</span>
+                        <span className="text-xs text-slate-400">
+                          ₪{Math.round(offer.price / totalTravelers).toLocaleString()} לאדם · סה״כ ל-{totalTravelers} נוסעים
+                        </span>
+                        <button
+                          onClick={() => setSelectedOffer({ ...offer, totalTravelers })}
+                          className="flex items-center gap-1 text-sm font-semibold text-white bg-[#0B2545] rounded-lg px-4 py-2 hover:bg-[#0B2545]/90 transition-colors mt-2 sm:mt-1"
+                        >
+                          צפה בדיל <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {form.searchType !== "hotels" && (
+              <>
+                <div className="bg-white rounded-xl shadow-lg p-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-slate-800">
+                      ✈️ טיסות {form.departureAirport} → {form.arrivalAirport || "?"}
+                    </p>
+                    {flightIsDemo ? (
+                      <p className="text-xs text-[#F0A202] font-medium">
+                        ⚠️ חיפוש טיסות חי לא זמין כרגע (בדוק שהזנת קודי שדות תעופה תקינים)
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[#1B7F79] font-medium">✓ נתונים חיים, עכשיו</p>
+                    )}
+                  </div>
+                </div>
+
+                {flightResults && (
+                  <div className="space-y-3">
+                    {flightResults.map((flight, i) => (
+                      <div
+                        key={i}
+                        className="bg-white rounded-xl border border-slate-200 hover:shadow-md transition-shadow p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                      >
+                        <div className="flex-1">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#0B2545] text-white">
+                            {flight.providerName}
+                          </span>
+                          <h3 className="font-bold text-slate-800 mt-1">
+                            {flight.airline || "חברת תעופה"} · {flight.departureAirport} → {flight.arrivalAirport}
+                          </h3>
+                          <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                            {flight.departureTime && <span>יציאה {flight.departureTime}</span>}
+                            {flight.arrivalTime && <span>נחיתה {flight.arrivalTime}</span>}
+                            {flight.stops !== null && <span>{flight.stops === 0 ? "ישירה" : `${flight.stops} עצירות`}</span>}
+                          </div>
+                        </div>
+                        <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0">
+                          <span className="text-xl font-bold text-[#0B2545]">₪{flight.price.toLocaleString()}</span>
+                          {flight.deepLink && (
+                            <a
+                              href={flight.deepLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-sm font-semibold text-white bg-[#0B2545] rounded-lg px-4 py-2 hover:bg-[#0B2545]/90 transition-colors mt-2 sm:mt-1"
+                            >
+                              למעבר לספק <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {view === "search" && <FeaturedDeals />}
       </main>
+
+      {selectedOffer && <DealModal offer={selectedOffer} onClose={() => setSelectedOffer(null)} />}
     </div>
   );
 }

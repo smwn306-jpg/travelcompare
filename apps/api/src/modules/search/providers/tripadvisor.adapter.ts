@@ -59,6 +59,7 @@ function normalize(raw: any): NormalizedOffer {
     providerId: "tripadvisor",
     providerName: "TripAdvisor",
     hotelName: raw?.title ?? raw?.name ?? "מלון (שם לא זמין)",
+    originalPrice: null,
     price: Number(String(raw?.priceForDisplay ?? raw?.price ?? "0").replace(/[^\d.]/g, "")),
     currency: raw?.currencySymbol ?? "ILS",
     reviewScore: raw?.bubbleRating?.rating ?? null,

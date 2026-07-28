@@ -7,6 +7,7 @@ export interface NormalizedOffer {
   providerName: string;     // "Booking.com"
   hotelName: string;
   price: number;
+  originalPrice: number | null; // מחיר לפני הנחה, אם קיים
   currency: string;
   reviewScore: number | null;
   stars: number | null;

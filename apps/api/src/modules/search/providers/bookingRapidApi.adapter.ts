@@ -82,11 +82,24 @@ function normalizeHotel(raw: any): NormalizedOffer {
     providerName: "Booking.com",
     hotelName: property?.name ?? "מלון (שם לא זמין)",
     price: Number(property?.priceBreakdown?.grossPrice?.value ?? property?.price ?? 0),
+    originalPrice: property?.priceBreakdown?.strikethroughPrice?.value
+      ? Number(property.priceBreakdown.strikethroughPrice.value)
+      : null,
     currency: property?.priceBreakdown?.grossPrice?.currency ?? "ILS",
     reviewScore: property?.reviewScore ?? null,
     stars: property?.propertyClass ?? property?.stars ?? null,
     imageUrl: property?.photoUrls?.[0] ?? raw?.hotel_id_photo_url ?? null,
-    deepLink: raw?.hotel_id ? `https://www.booking.com/hotel/${raw.hotel_id}.html` : null,
+    // אין לנו גישה רשמית ל-Booking Affiliate API (דורשת אישור עסקי), אז אין
+    // לנו קישור ישיר מובטח לדף המלון המדויק. קישור חיפוש עם שם המלון+יעד
+    // ותאריכים הוא הרבה יותר אמין — Booking עצמו יציג את אותו מלון כתוצאה
+    // המרכזית, במקום לשלוח לדף כללי/שגוי כמו שקישור לפי hotel_id בלבד עשה.
+    deepLink: property?.name
+      ? `https://www.booking.com/searchresults.html?${new URLSearchParams({
+          ss: `${property.name}, ${property?.wishlistName ?? ""}`,
+          checkin: property?.checkinDate ?? "",
+          checkout: property?.checkoutDate ?? "",
+        }).toString()}`
+      : null,
     address: property?.wishlistName ?? property?.address ?? null,
     raw,
   };

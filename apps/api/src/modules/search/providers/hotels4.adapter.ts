@@ -62,6 +62,7 @@ function normalize(raw: any): NormalizedOffer {
     providerId: "hotels4",
     providerName: "Hotels.com",
     hotelName: raw?.name ?? "מלון (שם לא זמין)",
+    originalPrice: null,
     price: Number(raw?.ratePlan?.price?.exactCurrent ?? 0),
     currency: raw?.ratePlan?.price?.currencyInfo?.code ?? "ILS",
     reviewScore: raw?.guestReviews?.rating ? Number(raw.guestReviews.rating) : null,
