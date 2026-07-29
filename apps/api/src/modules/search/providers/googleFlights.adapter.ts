@@ -60,9 +60,14 @@ export const googleFlightsAdapter: FlightProviderAdapter = {
     }
 
     const data = (await res.json()) as any;
-    logger.debug("Google Flights raw response shape", { keys: Object.keys(data ?? {}) });
-
     const results = data?.data?.itineraries?.topFlights ?? data?.data ?? [];
+    logger.info("Google Flights raw response shape", {
+      topLevelKeys: Object.keys(data ?? {}),
+      dataKeys: Object.keys(data?.data ?? {}),
+      isResultsArray: Array.isArray(results),
+      firstResultSample: JSON.stringify(Array.isArray(results) ? results[0] : null).slice(0, 1500),
+    });
+
     return (Array.isArray(results) ? results : []).map(normalizeFlight).filter((f) => f.price > 0);
   },
 };
