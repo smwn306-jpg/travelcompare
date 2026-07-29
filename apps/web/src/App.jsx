@@ -101,9 +101,9 @@ function AirportCityInput({ label, value, onCityChange, resolvedCode, onCodeChan
   const options = lookupAirports(value);
 
   useEffect(() => {
-    if (options.length === 1 && resolvedCode !== options[0]) {
+    if (options.length > 0 && !options.includes(resolvedCode)) {
       onCodeChange(options[0]);
-    } else if (options.length !== 1 && resolvedCode && !options.includes(resolvedCode)) {
+    } else if (options.length === 0 && resolvedCode) {
       onCodeChange("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,9 +125,8 @@ function AirportCityInput({ label, value, onCityChange, resolvedCode, onCodeChan
           onChange={(e) => onCodeChange(e.target.value)}
           className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs mt-1.5 focus:outline-none"
         >
-          <option value="">בחר שדה תעופה...</option>
           {options.map((code) => (
-            <option key={code} value={code}>{code}</option>
+            <option key={code} value={code}>שדה תעופה: {code}</option>
           ))}
         </select>
       )}
@@ -700,7 +699,6 @@ export default function VacationFinderApp() {
     searchType: "hotels", // hotels | flights | both
     departureCity: "תל אביב",
     departureAirport: "TLV",
-    arrivalCity: "",
     arrivalAirport: "",
   });
   const [results, setResults] = useState(null);
@@ -1046,9 +1044,9 @@ export default function VacationFinderApp() {
                   onCodeChange={(code) => setForm((f) => ({ ...f, departureAirport: code }))}
                 />
                 <AirportCityInput
-                  label="עיר יעד"
-                  value={form.arrivalCity}
-                  onCityChange={(v) => setForm((f) => ({ ...f, arrivalCity: v }))}
+                  label={`עיר יעד (טיסה) — לפי שדה "יעד" למעלה`}
+                  value={form.destination}
+                  onCityChange={(v) => setForm((f) => ({ ...f, destination: v }))}
                   resolvedCode={form.arrivalAirport}
                   onCodeChange={(code) => setForm((f) => ({ ...f, arrivalAirport: code }))}
                 />
