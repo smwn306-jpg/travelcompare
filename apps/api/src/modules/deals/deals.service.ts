@@ -1,4 +1,5 @@
 import { prisma } from "../../db/prisma.js";
+import { withDbRetry } from "../../lib/dbRetry.js";
 
 /**
  * Public "hot deals" feed — no search parameters required. Shows whatever
@@ -6,17 +7,19 @@ import { prisma } from "../../db/prisma.js";
  * This is what powers a homepage section like "דילים חמים עכשיו".
  */
 export async function getFeaturedDeals(limit = 20) {
-  const deals = await prisma.deal.findMany({
-    where: {
-      expiresAt: { gt: new Date() },
-      provider: { isActive: true },
-    },
-    include: {
-      provider: { select: { name: true, logoUrl: true } },
-    },
-    orderBy: { price: "asc" },
-    take: limit,
-  });
+  const deals: any[] = await withDbRetry(() =>
+    prisma.deal.findMany({
+      where: {
+        expiresAt: { gt: new Date() },
+        provider: { isActive: true },
+      },
+      include: {
+        provider: { select: { name: true, logoUrl: true } },
+      },
+      orderBy: { price: "asc" },
+      take: limit,
+    })
+  );
 
   return deals.map((deal: (typeof deals)[number]) => ({
     id: deal.id,

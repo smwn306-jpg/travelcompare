@@ -65,7 +65,7 @@ export const googleFlightsAdapter: FlightProviderAdapter = {
       topLevelKeys: Object.keys(data ?? {}),
       dataKeys: Object.keys(data?.data ?? {}),
       isResultsArray: Array.isArray(results),
-      firstResultSample: JSON.stringify(Array.isArray(results) ? results[0] : null).slice(0, 1500),
+      firstResultSample: JSON.stringify(Array.isArray(results) && results[0] ? results[0] : null).slice(0, 1500),
     });
 
     return (Array.isArray(results) ? results : []).map(normalizeFlight).filter((f) => f.price > 0);

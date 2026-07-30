@@ -55,7 +55,7 @@ async function searchByPlaceId(placeId: string, params: HotelSearchParams): Prom
   const results = data?.data?.list ?? data?.data ?? [];
   logger.info("Airbnb raw response shape", {
     topLevelKeys: Object.keys(data ?? {}),
-    firstResultSample: JSON.stringify(Array.isArray(results) ? results[0] : null).slice(0, 1500),
+    firstResultSample: JSON.stringify(Array.isArray(results) && results[0] ? results[0] : null).slice(0, 1500),
   });
   return results;
 }
