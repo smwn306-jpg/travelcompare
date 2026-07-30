@@ -720,6 +720,7 @@ export default function VacationFinderApp() {
   const [flightResults, setFlightResults] = useState(null);
   const [flightIsDemo, setFlightIsDemo] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState(null);
+  const [resultsTab, setResultsTab] = useState("hotels"); // hotels | flights — רלוונטי רק במסך צר
 
   const fetchHotels = async () => {
     try {
@@ -1068,9 +1069,30 @@ export default function VacationFinderApp() {
         )}
 
         {view === "results" && !searchLoading && (
-          <div className="pb-12 space-y-5">
+          <div className={`pb-12 ${form.searchType === "both" ? "grid grid-cols-1 lg:grid-cols-2 gap-5 items-start" : "space-y-5"}`}>
+            {form.searchType === "both" && (
+              <div className="lg:hidden flex gap-2 -mb-2">
+                <button
+                  onClick={() => setResultsTab("hotels")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${
+                    resultsTab === "hotels" ? "bg-[#0B2545] text-white" : "bg-white text-slate-600 border border-slate-200"
+                  }`}
+                >
+                  <Hotel className="w-4 h-4" /> מלונות
+                </button>
+                <button
+                  onClick={() => setResultsTab("flights")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${
+                    resultsTab === "flights" ? "bg-[#0B2545] text-white" : "bg-white text-slate-600 border border-slate-200"
+                  }`}
+                >
+                  <Plane className="w-4 h-4" /> טיסות
+                </button>
+              </div>
+            )}
+
             {form.searchType !== "flights" && results && (
-              <>
+              <div className={`space-y-5 ${form.searchType === "both" && resultsTab !== "hotels" ? "hidden lg:block" : ""}`}>
                 <div className="bg-white rounded-xl shadow-lg p-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="font-bold text-slate-800">
@@ -1146,11 +1168,11 @@ export default function VacationFinderApp() {
                     </div>
                   ))}
                 </div>
-              </>
+              </div>
             )}
 
             {form.searchType !== "hotels" && (
-              <>
+              <div className={`space-y-5 ${form.searchType === "both" && resultsTab !== "flights" ? "hidden lg:block" : ""}`}>
                 <div className="bg-white rounded-xl shadow-lg p-4 flex items-center justify-between gap-3">
                   <div>
                     <p className="font-bold text-slate-800">
@@ -1203,7 +1225,7 @@ export default function VacationFinderApp() {
                     ))}
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
         )}
