@@ -64,6 +64,8 @@ export const googleFlightsAdapter: FlightProviderAdapter = {
     logger.info("Google Flights raw response shape", {
       topLevelKeys: Object.keys(data ?? {}),
       dataKeys: Object.keys(data?.data ?? {}),
+      status: data?.status,
+      apiMessage: data?.message,
       isResultsArray: Array.isArray(results),
       firstResultSample: JSON.stringify(Array.isArray(results) && results[0] ? results[0] : null).slice(0, 1500),
     });
