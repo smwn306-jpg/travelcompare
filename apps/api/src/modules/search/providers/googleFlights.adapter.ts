@@ -9,22 +9,26 @@ function headers() {
   return { "x-rapidapi-host": HOST, "x-rapidapi-key": config.rapidApi.key ?? "" };
 }
 
-function normalizeFlight(raw: any): NormalizedFlightOffer {
-  // שדות משוערים לפי המבנה המוכר של ה-wrapper הזה — ראה הערה ב-search.routes.ts
-  // לגבי איך לאתר את הצורה האמיתית מהלוגים אם משהו לא תואם.
-  const flight = raw?.flights?.[0] ?? raw;
+function normalizeFlight(raw: any, params: FlightSearchParams): NormalizedFlightOffer {
+  // מבנה מאושר מתוך תשובה אמיתית (ולא ניחוש יותר):
+  // raw = { departure_time, arrival_time, flights: [{ departure_airport: { airport_code, airport_name, time }, arrival_airport: {...}, airline, flight_number }], price, stops, booking_token }
+  const firstLeg = raw?.flights?.[0];
   return {
     providerId: "google-flights",
     providerName: "Google Flights",
-    airline: flight?.airline_name ?? flight?.airline ?? null,
-    departureAirport: flight?.departure_airport?.id ?? flight?.departure_id ?? "",
-    arrivalAirport: flight?.arrival_airport?.id ?? flight?.arrival_id ?? "",
-    departureTime: flight?.departure_time ?? null,
-    arrivalTime: flight?.arrival_time ?? null,
+    airline: firstLeg?.airline ?? null,
+    departureAirport: firstLeg?.departure_airport?.airport_code ?? params.departureId,
+    arrivalAirport: firstLeg?.arrival_airport?.airport_code ?? params.arrivalId,
+    departureTime: raw?.departure_time ?? null,
+    arrivalTime: raw?.arrival_time ?? null,
     price: Number(raw?.price ?? 0),
     currency: raw?.currency ?? "USD",
-    stops: Array.isArray(raw?.flights) ? raw.flights.length - 1 : null,
-    deepLink: raw?.booking_url ?? null,
+    stops: typeof raw?.stops === "number" ? raw.stops : Array.isArray(raw?.flights) ? raw.flights.length - 1 : null,
+    // booking_token הוא לא כתובת שאפשר לפתוח ישירות (דורש קריאת API נוספת) —
+    // קישור חיפוש אמיתי בגוגל טיסות הוא אמין הרבה יותר, בדיוק כמו שעשינו ל-Booking.
+    deepLink: `https://www.google.com/travel/flights?q=${encodeURIComponent(
+      `Flights from ${params.departureId} to ${params.arrivalId} on ${params.departureDate}`
+    )}`,
     raw,
   };
 }
@@ -71,6 +75,6 @@ export const googleFlightsAdapter: FlightProviderAdapter = {
       firstResultSample: JSON.stringify(Array.isArray(results) && results[0] ? results[0] : null).slice(0, 1500),
     });
 
-    return (Array.isArray(results) ? results : []).map(normalizeFlight).filter((f) => f.price > 0);
+    return (Array.isArray(results) ? results : []).map((r) => normalizeFlight(r, params)).filter((f) => f.price > 0);
   },
 };

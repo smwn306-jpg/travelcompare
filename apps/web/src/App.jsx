@@ -923,12 +923,9 @@ export default function VacationFinderApp() {
       {/* Hero + search form (Booking-style sticky search bar) */}
       <section className="bg-[#0B2545] pb-16 pt-6">
         <div className="max-w-6xl mx-auto px-6">
-          <h1 className="text-white text-2xl sm:text-3xl font-bold mb-1">
+          <h1 className="text-white text-2xl sm:text-3xl font-bold mb-6">
             חופשה אחת, השוואה בין כל האתרים
           </h1>
-          <p className="text-slate-300 text-sm mb-6">
-            Booking.com · Hotels.com · TripAdvisor · Airbnb · Google Flights — במקום אחד
-          </p>
 
           <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-5">
             <div className="flex gap-2 mb-4">
