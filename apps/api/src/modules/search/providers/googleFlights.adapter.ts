@@ -41,11 +41,12 @@ export const googleFlightsAdapter: FlightProviderAdapter = {
     const query = new URLSearchParams({
       departure_id: params.departureId,
       arrival_id: params.arrivalId,
+      outbound_date: params.departureDate,
       travel_class: "ECONOMY",
       adults: String(params.adults),
       show_hidden: "1",
       currency: params.currency ?? "USD",
-      language_code: "he",
+      language_code: "en-US",
       country_code: "IL",
       search_type: "best",
     });

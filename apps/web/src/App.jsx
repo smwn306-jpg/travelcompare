@@ -888,7 +888,7 @@ export default function VacationFinderApp() {
             חופשה אחת, השוואה בין כל האתרים
           </h1>
           <p className="text-slate-300 text-sm mb-6">
-            בוקינג · אשת טורס · איסתא · Fattal · Diesenhaus — במקום אחד
+            Booking.com · Hotels.com · TripAdvisor · Airbnb · Google Flights — במקום אחד
           </p>
 
           <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-5">
