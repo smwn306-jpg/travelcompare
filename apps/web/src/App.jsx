@@ -1185,6 +1185,13 @@ export default function VacationFinderApp() {
                   </div>
                 </div>
 
+                {!searchIsDemo && (
+                  <p className="text-xs text-slate-400">
+                    ⚠️ המחיר מוצג לפי מה שהספק החזיר בזמן החיפוש — ייתכן פער קטן עד ההזמנה בפועל. הקישור "צפה בדיל" →
+                    "המשך להזמנה" מוביל לתוצאות חיפוש עם שם המלון אצל הספק (לא בהכרח לעמוד המדויק).
+                  </p>
+                )}
+
                 <div className="space-y-3">
                   {sortedResults.map((offer) => (
                     <div

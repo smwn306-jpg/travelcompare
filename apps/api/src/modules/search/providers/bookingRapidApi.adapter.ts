@@ -74,7 +74,7 @@ async function searchHotelsByDestId(
   return hotels;
 }
 
-function normalizeHotel(raw: any): NormalizedOffer {
+function normalizeHotel(raw: any, params: HotelSearchParams): NormalizedOffer {
   // כאן גם — שדות משוערים לפי המבנה המוכר. ראה הערת הלוג למעלה.
   const property = raw?.property ?? raw;
   return {
@@ -90,14 +90,18 @@ function normalizeHotel(raw: any): NormalizedOffer {
     stars: property?.propertyClass ?? property?.stars ?? null,
     imageUrl: property?.photoUrls?.[0] ?? raw?.hotel_id_photo_url ?? null,
     // אין לנו גישה רשמית ל-Booking Affiliate API (דורשת אישור עסקי), אז אין
-    // לנו קישור ישיר מובטח לדף המלון המדויק. קישור חיפוש עם שם המלון+יעד
-    // ותאריכים הוא הרבה יותר אמין — Booking עצמו יציג את אותו מלון כתוצאה
-    // המרכזית, במקום לשלוח לדף כללי/שגוי כמו שקישור לפי hotel_id בלבד עשה.
+    // לנו קישור ישיר מובטח לדף המלון המדויק. שימוש רק בשם המלון (בלי לערבב
+    // עם שם העיר בעברית, שבלבל את מנוע החיפוש של Booking בגרסה הקודמת) +
+    // תאריכים + מספר נוסעים — זה נותן ל-Booking הכי הרבה סיכוי להציג את
+    // אותו מלון בדיוק כתוצאה המרכזית.
     deepLink: property?.name
       ? `https://www.booking.com/searchresults.html?${new URLSearchParams({
-          ss: `${property.name}, ${property?.wishlistName ?? ""}`,
+          ss: property.name,
           checkin: property?.checkinDate ?? "",
           checkout: property?.checkoutDate ?? "",
+          group_adults: String(params.adults ?? 2),
+          group_children: String(params.children ?? 0),
+          no_rooms: "1",
         }).toString()}`
       : null,
     address: property?.wishlistName ?? property?.address ?? null,
@@ -121,6 +125,6 @@ export const bookingRapidApiAdapter: ProviderAdapter = {
     }
 
     const hotels = await searchHotelsByDestId(destId, params);
-    return hotels.map(normalizeHotel).filter((offer) => offer.price > 0);
+    return hotels.map((h: any) => normalizeHotel(h, params)).filter((offer) => offer.price > 0);
   },
 };
