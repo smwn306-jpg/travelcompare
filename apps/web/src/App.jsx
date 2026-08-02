@@ -1257,6 +1257,10 @@ export default function VacationFinderApp() {
 
                 {flightResults && (
                   <div className="space-y-3">
+                    <p className="text-xs text-[#F0A202] font-medium">
+                      ⚠️ המחיר המוצג הוא הערכה גסה בלבד ולא תמיד מדויק (לפי בדיקה מול גוגל טיסות עצמו) — ייתכן
+                      שאינו כולל את כל הנוסעים או שהוא לכיוון אחד בלבד. תמיד יש לבדוק את המחיר הסופי אצל הספק לפני הזמנה.
+                    </p>
                     {flightResults.map((flight, i) => (
                       <div
                         key={i}
@@ -1277,6 +1281,7 @@ export default function VacationFinderApp() {
                         </div>
                         <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0">
                           <span className="text-xl font-bold text-[#0B2545]">₪{flight.price.toLocaleString()}</span>
+                          <span className="text-xs text-slate-400">מחיר משוער — יש לאמת אצל הספק</span>
                           {flight.deepLink && (
                             <a
                               href={flight.deepLink}
